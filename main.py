@@ -9,15 +9,17 @@
 #   -> Uedson Gaiek
 #   -> Maria Eduarda Alves Cardoso
 #   -> Thiago Emanoel Brito Santos
+#   -> João Arthur Souza Santos
 ###################################################################################################################################################################################################
 import sympy as sym
+import sympy.plotting as sym_plot
 import matplotlib.pyplot as plt
+import numpy as np
 from os import system
-from random import uniform
+from random import uniform, random
 
 # == Configurações ==
-STOP_MODE = 1 # Modo de condição de parada [0: Gradiente, 1: Variação, 2: ??]
-MAX = 300     # Número máximo de iterações
+MAX = 150 # Número máximo de iterações
 
 # Retorna um vetor gradiente de uma função
 def grad(f, arg1, arg2, ptn):
@@ -35,44 +37,41 @@ def grad(f, arg1, arg2, ptn):
 class CondParada:
     def __init__(self, lmt) -> None:
         self.limite = lmt
-        self.mode = STOP_MODE
         self.parada = False
     
-    # TODO >> Conferir últimos 5 pontos ao invés de apenas o último 
-    # 01 Condição de parada baseada no Grandiente. O gradiente sempre é zero no ponto de máximo
-    def conferir_parada_grad(self, grd):
-        if (abs(grd[0]) < self.limite or abs(grd[1]) < self.limite) : return True
-
-    # 02 Condição de parada baseada na Variação entre os últimos 5 pontos
-    def conferir_parada_var(self, arg):
-        if len(arg) < 5 : return False
-        for i, j in zip(range(-5, -1), range(-4, -1)):
-            if (abs(arg[i][0] - arg[j][0]) > self.limite) or (abs(arg[i][1] - arg[j][1]) > self.limite): return False
-        return True
-
-    # 03
-
-    #
-    def set_stop(self, grd = [], arg = []):
-        if   (self.mode == 0) and (self.conferir_parada_grad(grd)): self.parada = True
-        elif (self.mode == 1) and (self.conferir_parada_var(arg)): self.parada = True
-       #elif (self.mode == 2) and 
+    # Condição de parada baseada no Grandiente.
+    def set_stop(self, func, a, b, arg):
+        # Retornar falso caso apenas tenha até 5 pontos
+        if len(arg) < 5:
+            return False
+        res = [0, 0]
+        for i in range(-5, 0):
+            grd = grad(func, a, b, arg[i])
+            res[0] = abs(res[0]) - grd[0]
+            res[1] = abs(res[1]) - grd[1]
+        if (res[0] < self.limite and res[1] < self.limite):
+            self.parada = True
+            return True
 
 # == Função principal ==
 def otimz_rand(interval):
     # Definições de variáveis
     alpha, x1, x2 = sym.symbols('a x₁ x₂') # xi = xᵢ
     v = [4, 4] # X₀
-    f = (((x1-3)**2)/4) + (((x2-2)**2)/9) + 13 # Função
-    k = 0 # N° de iterações
+    
+    #Funções
+    def func(a, b):
+        return (((a-3)**2)/4) + (((b-2)**2)/9) + 13  # Função 1
+       #return (a + 2*b - 7)**2 + (2*a + b - 5)**2   # Função 2
 
-    # Armazenando informações
-    pnts = [v]
+    f = func(x1, x2)
+    k = 0 # N° de iterações
+    pnts = [v] # Armazena Informações de todos os pontos
 
     # Condição de parada
-    cond = CondParada(0.001) # Tolerância de 0.1%
+    cond = CondParada(0.0001) # Tolerância de 0.01%
 
-    print('Calculando. Por favor espere...')
+    print('Calculando. Por favor aguarde...')
     # Loop principal
     while (not cond.parada) and k < MAX:
         # TODO >> Mudar para variáveis aleatórias nomais ao invés de uniformes
@@ -89,38 +88,47 @@ def otimz_rand(interval):
 
         if len(res) > 0:
             v = [ # Novos pontos são atribuídos
-                p[0].subs(alpha, res[0]),
-                p[1].subs(alpha, res[0])
+                p[0].subs(alpha, res[-1]),
+                p[1].subs(alpha, res[-1])
             ]
         else: v = p
         pnts.append(v)
 
         # Confere a condição de parada
-        cond.set_stop( grd = grad(f, x1, x2, v), arg = pnts)
+        cond.set_stop( f, x1, x2, pnts )
         k += 1
-
-        # TODO >> Atribuir o break no loop while
-        # Abortar após grande número de iterações
-        #if k >= MAX: break
     
     # Resultado final
     system('cls')
-    print(f'{pnts}')
+    for ponto in pnts:
+        print(f'{ponto}')
     print(f'Ponto ótimo X* = ({v[0]}, {v[1]}) | {k} iterações')
 
-    # TODO >> Plot em 3D
-    # Plot do gráfico
-    x = []
-    for x_i in range(len(pnts)): x.append(x_i)
+    # Plot do gráfico 3D
+    sym_plot.plot3d(f, (x1, -100, 100), (x2, -100, 100))
 
-    figure, axis = plt.subplots(2, 1)
+    # Plot do gráfico 2D
+    x, p1, p2 = [], [], []
+    for x_i in range(len(pnts)) : x.append(x_i)
+    for p in pnts:
+        p1.append(p[0])
+        p2.append(p[1])
+
+    a = np.arange(v[0]-2, v[0]+2, 0.01)
+    b = np.arange(v[1]-2, v[1]+2, 0.01)
+    [X, Y] = np.meshgrid(a, b)
+    Z = func(X, Y)
+    fig, axis = plt.subplots(2, 1)
+
     axis[0].plot(x, pnts)
-    axis[0].set_title("f(x₁, x₂) x Iteração")
+    axis[0].set_title('f(x₁, x₂) x Iteração')
 
+    axis[1].contour(X, Y, Z)
+    axis[1].plot(p1, p2)
+    axis[1].set_title('Cruva de níveis e Deslocamento')
+    plt.xlabel('x1', fontsize=10)
+    plt.ylabel('x2', fontsize=10)
     plt.show()
-    
-
-
 
 # Roda o programa
 if __name__ == '__main__':
